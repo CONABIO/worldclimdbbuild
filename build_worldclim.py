@@ -53,6 +53,9 @@ layers_tags = glob.glob('bio*.tags')
 
 os.chdir('../../')
 
+# valor para delimitar el área del raster, así como delimiar los valores de cobertura con los que se calculan los rangos (bins)
+aoi_value = "Americas"
+
 
 # Obteniendo variables de ambiente
 try:
@@ -62,90 +65,90 @@ except Exception as e:
     logger.error('No se pudieron obtener las variables de entorno requeridas : {0}'.format(str(e)))
     sys.exit()
 
-# # TODO: Creando tabla aoi  partir de archivo existente
-# try:
+# Creando tabla aoi (area de interes) contempla todos los países divididos por continente
+try:
 
-#     logger.info('Creando tabla aoi  partir de archivo existente')
-#     create_extensions_sql = get_sql(create_extensions) 
-#     create_aoi_table_sql = get_sql(create_aoi_table) 
-#     geom_aoi_data_sql = get_sql(geom_aoi_data) 
+    logger.info('Instalando extensiones y Creando tabla aoi a nivel mundial')
+    create_extensions_sql = get_sql(create_extensions) 
+    create_aoi_table_sql = get_sql(create_aoi_table) 
+    geom_aoi_data_sql = get_sql(geom_aoi_data) 
 
-#     conn = psycopg2.connect('dbname={0} host={1} port={2} user={3} password={4}'.format(DBNICHENAME, DBNICHEHOST, DBNICHEPORT, DBNICHEUSER, DBNICHEPASSWD))
-#     conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
-#     cur = conn.cursor()
+    conn = psycopg2.connect('dbname={0} host={1} port={2} user={3} password={4}'.format(DBNICHENAME, DBNICHEHOST, DBNICHEPORT, DBNICHEUSER, DBNICHEPASSWD))
+    conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+    cur = conn.cursor()
 
-#     cur.execute(create_extensions_sql)
-#     logger.info('create_extensions_sql')
+    cur.execute(create_extensions_sql)
+    logger.info('create_extensions_sql')
 
-#     cur.execute(create_aoi_table_sql)
-#     logger.info('create_aoi_table_sql')
+    cur.execute(create_aoi_table_sql)
+    logger.info('create_aoi_table_sql')
 
-#     cur.execute(geom_aoi_data_sql)
-#     logger.info('geom_aoi_data_sql')
+    cur.execute(geom_aoi_data_sql)
+    logger.info('geom_aoi_data_sql')
 
-#     logger.info('Termina creacion de tabla aoi con datos mundiales')
+    logger.info('Termina creacion de tabla aoi con datos mundiales')
 
-#     cur.close()
-#     conn.close()
+    cur.close()
+    conn.close()
 
-# except Exception as e:
-#     logger.error('No se pudo crear la tabla aoi: {0}'.format(str(e)))
-#     sys.exit()
+except Exception as e:
+    logger.error('No se pudo instalar las extensiones necesarias o crear y llenar la tabla aoi a nivel mundial: {0}'.format(str(e)))
+    sys.exit()
 
 
 
-# # preprocesamiento de datos raster. Generación de shpefile y uso para recorte del raster de worldclim
-# try:
+# Preprocesamiento de datos raster. Generación de shapefile y uso para recorte del raster de worldclim
+try:
 
-# 	logger.info('Obteniendo geometrias de la DB {0}'.format(DBNICHENAME))
-#     sources = get_sql(sources_file).splitlines()
-#     get_aoi_sql = get_sql(get_aoi)
+	logger.info('Obteniendo geometrias de la DB {0}'.format(DBNICHENAME))
+    sources = get_sql(sources_file).splitlines()
+    get_aoi_sql = get_sql(get_aoi.format(continent=aoi_value))
     
 
-#     # este comando genera un shapefile <shapefile_name> con base a la consulta generada 
-#     # en la tabla aoi en en su defecto lo que venga en el archivo <get_aoi_sql> 
-#     # en la proyección EPSG:4326
-#     args = [ 'ogr2ogr', '-f', 'ESRI Shapefile', shapefile_name, 
-#            'PG:dbname={0} host={1} port={2} user={3} password={4}'.format(DBNICHENAME, DBNICHEHOST, DBNICHEPORT, DBNICHEUSER, DBNICHEPASSWD),
-#            '-s_srs', 'EPSG:4326', '-t_srs', 'EPSG:4326',
-#            '-sql', get_aoi_sql]
+    # este comando genera un shapefile <shapefile_name> con base a la consulta generada 
+    # en la tabla aoi en en su defecto lo que venga en el archivo <get_aoi_sql> 
+    # en la proyección EPSG:4326
+    args = [ 'ogr2ogr', '-f', 'ESRI Shapefile', shapefile_name, 
+           'PG:dbname={0} host={1} port={2} user={3} password={4}'.format(DBNICHENAME, DBNICHEHOST, DBNICHEPORT, DBNICHEUSER, DBNICHEPASSWD),
+           '-s_srs', 'EPSG:4326', '-t_srs', 'EPSG:4326',
+           '-sql', get_aoi_sql]
     
-#     p = subprocess.Popen(args, stdout=subprocess.PIPE)
-#     logger.info('ogr2ogr: {0}'.format(p.communicate()[0]))
+    p = subprocess.Popen(args, stdout=subprocess.PIPE)
+    logger.info('ogr2ogr: {0}'.format(p.communicate()[0]))
 
-#     # mover indice al numero de variables existentes
-#     number_var = 1
-#     for source in sources:
-#         info = source.split(',')
+    # mover indice al numero de variables existentes
+    number_var = 1
+    for source in sources:
+        info = source.split(',')
         
-#         raster_name = '{0}{1}'.format(input_folder, info[0])
-#         logger.info('raster_name: ' + raster_name)
+        raster_name = '{0}{1}'.format(input_folder, info[0])
+        logger.info('raster_name: ' + raster_name)
 
-#         final_name = '{0}{1}_{2}_final.tif'.format(output_folder, get_basename(info[0]), get_three_digits_number_var(number_var))
-#         logger.info('final_name: ' + final_name)
+        final_name = '{0}{1}_{2}_final.tif'.format(output_folder, get_basename(info[0]), get_three_digits_number_var(number_var))
+        logger.info('final_name: ' + final_name)
 
         
-#         logger.info('Cortando raster: {0} usando shapefile: {1}'.format(raster_name, shapefile_name))
-#         src_ds = gdal.Open(raster_name)
-#         src_band = src_ds.GetRasterBand(1)
-#         nodata = src_band.GetNoDataValue()
-#         src_ds = None
-#         src_band = None 
+        logger.info('Cortando raster: {0} usando shapefile: {1}'.format(raster_name, shapefile_name))
+        src_ds = gdal.Open(raster_name)
+        src_band = src_ds.GetRasterBand(1)
+        nodata = src_band.GetNoDataValue()
+        src_ds = None
+        src_band = None 
 
-#         # este comando solcita un raster de entrada que sera cortado o delimitado 
-#         # por la entrada del shapefile <shapefile_name> y entregara como salida 
-#         # un raster recortado <final_name>
-#         args = ['gdalwarp', '-overwrite', '-s_srs', 'EPSG:4326', '-srcnodata', str(nodata), 
-#                 '-dstnodata', str(nodata), '-crop_to_cutline', '-cutline', shapefile_name,
-#                 raster_name,  final_name]
+        # este comando solcita un raster de entrada que sera cortado o delimitado 
+        # por la entrada del shapefile <shapefile_name> y entregara como salida 
+        # un raster recortado <final_name>
+        args = ['gdalwarp', '-overwrite', '-s_srs', 'EPSG:4326', '-srcnodata', str(nodata), 
+                '-dstnodata', str(nodata), '-crop_to_cutline', '-cutline', shapefile_name,
+                raster_name,  final_name]
 
-#         p = subprocess.Popen(args, stdout=subprocess.PIPE)
-#         logger.info('gdalwarp: {0}'.format(p.communicate()[0]))
-#         number_var += 1
+        p = subprocess.Popen(args, stdout=subprocess.PIPE)
+        logger.info('gdalwarp: {0}'.format(p.communicate()[0]))
+        number_var += 1
 
-# except Exception as e:
-#     logger.error('No se pudieron obtener las geometrias: {0}'.format(str(e)))
-#     sys.exit()
+except Exception as e:
+    logger.error('No se pudieron obtener las geometrias: {0}'.format(str(e)))
+    sys.exit()
 
 
 

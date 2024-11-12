@@ -1,1 +1,1 @@
-SELECT ST_Union(geom) FROM aoi where continent = 'Americas'
+SELECT ST_Union(geom) FROM aoi where continent = '{continent}'

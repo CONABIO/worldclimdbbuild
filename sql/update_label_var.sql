@@ -1,0 +1,1 @@
+UPDATE raster_bins SET label = '{label}', type = {type} WHERE layer = '{layer}';

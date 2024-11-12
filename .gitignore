@@ -1,0 +1,10 @@
+.DS_store
+data/input/*
+data/output/*
+data/*.shp
+data/*.dbf
+data/*.prj
+data/*.shx
+data/*.csv
+shapes/
+.env

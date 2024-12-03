@@ -1,1 +1,0 @@
-SELECT ST_Union(geom) FROM aoi where continent = '{continent}'

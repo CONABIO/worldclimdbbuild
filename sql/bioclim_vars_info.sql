@@ -1,1 +1,0 @@
-INSERT INTO fuentes_bioclimaticas(fuente, descripcion) VALUES('{source}', '{description}');

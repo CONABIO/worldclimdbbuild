@@ -22,6 +22,12 @@ dic_wc_order.set('1','order by id_fuentes_bio')
 dic_wc_order.set('2','order by id_fuentes_bio, layer')
 dic_wc_order.set('3','order by bid')
 
+let valid_filters = ["idfuente","idlayer","idrange"]
+let dic_wc_db = new Map();
+dic_wc_db.set('idfuente','id_fuentes_bio')
+dic_wc_db.set('idlayer','layer')
+dic_wc_db.set('idrange','bid')
+
 
 
 exports.variables = function(req, res) {
@@ -93,78 +99,73 @@ exports.get_variable_byid = function(req, res) {
 	let pair_separator = "="
 	let group_separator = ","
 
-	// q: "fuente_id = 1; layer = bio018"
-	// TODO: hacer filtros segun nivel
+	// q: "idfuente = 1; idlayer = bio018; idrange = 300450"
 	
-	// if(q != ""){
+	if(q != ""){
 
-	// 	let array_queries = q.split(filter_separator)
-	// 	debug(array_queries)
+		let array_queries = q.split(filter_separator)
+		debug(array_queries)
 
-	// 	if(array_queries.length == 0){
-	// 		debug("Sin filtros definidos")
-	// 	}
-	// 	else{
-	// 		array_queries.forEach((filter, index) => {
+		if(array_queries.length == 0){
+			debug("Sin filtros definidos")
+		}
+		else{
+			array_queries.forEach((filter, index) => {
 
-	// 			let filter_pair = filter.split(pair_separator)
-	// 			debug(filter_pair)
+				let filter_pair = filter.split(pair_separator)
+				debug(filter_pair)
 
-	// 			if(filter_pair.length == 0){
-	// 				debug("Filtro indefinido")
-	// 			}
-	// 			else{
+				if(filter_pair.length == 0){
+					debug("Filtro indefinido")
+				}
+				else{
 					
-	// 				let filter_param = filter_pair[0].trim()
-	// 				// debug("filter_param: " + filter_param)
+					let filter_param = filter_pair[0].trim()
+					debug("filter_param: " + filter_param)
 
-	// 				// TODO:Revisar por que no jala en enalce del mapa con su llave valor
-	// 				// debug(dic_wc.keys())
-	// 				// debug("dic_wc: " + dic_wc.get(filter_param))
-					
 
-	// 				if(valid_filters.indexOf(filter_param) == -1){
-	// 					debug("Filtro invalido")
-	// 				}
-	// 				else{
+					if(valid_filters.indexOf(filter_param) == -1){
+						debug("Filtro invalido")
+					}
+					else{
 						
-	// 					if(filter_pair.length != 2){
-	// 						debug("Filtro invalido por composición")
-	// 					}
-	// 					else{
-	// 						let filter_value = filter_pair[1].trim().split(group_separator)	
+						if(filter_pair.length != 2){
+							debug("Filtro invalido por composición")
+						}
+						else{
+							let filter_value = filter_pair[1].trim().split(group_separator)	
 							
-	// 						let query_temp = "( "
-	// 						filter_value.forEach((value, index) => {
+							let query_temp = "( "
+							filter_value.forEach((value, index) => {
 
-	// 							if(filter_param !== "levels_id"){
-	// 								value = "'" + value + "'"
-	// 							}
-								
-	// 							if(index == 0){
-	// 								query_temp = query_temp + dic_wc.get(filter_param) + " = " + value
-	// 							}
-	// 							else{
-	// 								query_temp = query_temp + " or " + dic_wc.get(filter_param) + " = " + value + " "
-	// 							}
+								if(filter_param == "idlayer"){
+									value = "'" + value + "'"
+								}
 
-	// 						})
-	// 						query_temp = query_temp + " )"
-	// 						query_array.push(query_temp)
+								if(index == 0){
+									query_temp = query_temp + dic_wc_db.get(filter_param) + " = " + value
+								}
+								else{
+									query_temp = query_temp + " or " + dic_wc_db.get(filter_param) + " = " + value + " "
+								}
 
-	// 					}
+							})
+							query_temp = query_temp + " )"
+							query_array.push(query_temp)
 
-	// 				}
+						}
 
-	// 			}
+					}
 
-	// 		})	
+				}
 
-	// 		debug(query_array)
+			})	
 
-	// 	}
+			debug(query_array)
 
-	// }
+		}
+
+	}
 
 
 	pool.task(t => {
@@ -178,12 +179,24 @@ exports.get_variable_byid = function(req, res) {
 					from fuentes_bioclimaticas fb 
 					join raster_bins rb 
 					on fb.id = rb.id_fuentes_bio
+					{queries}
 					{group}
 					{order}`
 
 		query = query.replace("{select}", val_dic_wc_select)
 		query = query.replace("{group}", val_dic_wc_group)
 		query = query.replace("{order}", val_dic_wc_order)
+
+		query_array.forEach((query_temp, index) => {
+			if (index==0) {
+				query = query.replace("{queries}", " where " + query_temp + " {queries} ")
+			}
+			else{
+				query = query.replace("{queries}", " and " + query_temp + " {queries} ")
+			}
+			
+		})
+		query = query.replace("{queries}", "")
 
 		debug(query)
 
@@ -247,15 +260,44 @@ exports.get_data_byid = async function (req, res) {
         const filter_names = verb_utils.getParam(req, 'filter_names', []);
         const filter_values = verb_utils.getParam(req, 'filter_values', []);
 
+        let filter_array = []
+
+        if (levels_id.length === 0) {
+            return res.status(404).json({ message: "No se proporcionaron levels_id." });
+        }
+
+		if(filter_names.length > 0){
+			filter_names.forEach((filter_name, index) => {
+				let filter_temp = {}
+				filter_temp = {filter_param: filter_name, filter_value: filter_values[index]}
+				filter_array.push(filter_temp)
+			})
+		}
+
         const queryLevels = `
             SELECT bid, layer, icat, id_fuentes_bio, "label", fb.bins
             FROM raster_bins rb
             JOIN fuentes_bioclimaticas fb ON fb.id = rb.id_fuentes_bio
             WHERE bid IN ($<bids:raw>)
+            $<filters:raw>
         `;
 
+        let filter_query = ""
+
+        filter_array.forEach((filter_item) => {	
+        	debug(filter_item)
+
+        	if(filter_item.filter_param == "idlayer"){
+        		filter_item.filter_value = "'" + filter_item.filter_value + "'"
+        	}
+
+			filter_query += filter_query + " and " + dic_wc_db.get(filter_item.filter_param) + " = " + filter_item.filter_value
+		})
+
+		debug("filter_query: " + filter_query)
+
         // Ejecuta la primera consulta
-        const levelsIds = await pool.any(queryLevels, {bids: levels_id.toString()});
+        const levelsIds = await pool.any(queryLevels, {bids: levels_id.toString(), filters: filter_query});
 
         debug(levelsIds)
         
